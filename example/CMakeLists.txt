@@ -5,6 +5,7 @@ add_executable(${TARGET_NAME}
     glutil.cpp
     Win32Window.cpp
     ImGuiImplScreenState.cpp
+    Renderer.cpp
     )
 set_property(TARGET ${TARGET_NAME} 
     PROPERTY CXX_STANDARD 20
