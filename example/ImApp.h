@@ -28,8 +28,6 @@ struct ImApp
 	ImApp();
 	~ImApp();
 	int Init(const Config &config = Config());
-	void LoadBanks(int bankCount, const char **bankPaths);
-	void PlayEvent(const char *eventName);
 	void NewFrame();
 	void EndFrame();
 	void Finish();

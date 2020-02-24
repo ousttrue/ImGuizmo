@@ -39,92 +39,25 @@ public:
 
 		info->hInstance = GetModuleHandle(0);
 
-		static DEVMODEA screenSettings = { {0},
-#if _MSC_VER < 1400
-										   0,
-										   0,
-										   148,
-										   0,
-										   0x001c0000,
-										   {0},
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   {0},
-										   0,
-										   32,
-										   config.mWidth,
-										   config.mHeight,
-										   0,
-										   0, // Visual C++ 6.0
-#else
-										   0,
-										   0,
-										   156,
-										   0,
-										   0x001c0000,
-										   {0},
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   {0},
-										   0,
-										   32,
-										   config.mWidth,
-										   config.mHeight,
-										   {0},
-										   0, // Visuatl Studio 2005
-#endif
-#if (WINVER >= 0x0400)
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-										   0,
-#if (WINVER >= 0x0500) || (_WIN32_WINNT >= 0x0400)
-										   0,
-										   0
-#endif
-#endif
-		};
-		if (config.mFullscreen)
-		{
-			if (config.mFullscreen && ChangeDisplaySettingsA(&screenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
-				return 0;
-		}
-#ifdef IMGUI_API
 		ImGui::CreateContext();
-#endif
 		if (!WindowInit(info))
 		{
 			WindowEnd(info);
 			return 0;
 		}
 		if (!::InitExtension())
+		{
 			return 0;
+		}
 
-#ifdef IMGUI_API
 		if (!ImGui_Init())
+		{
 			return 0;
+		}
 
-#endif
 		mDone = false;
 		return 1;
 	}
-
-	void LoadBanks(int bankCount, const char **bankPaths)
-	{
-	}
-	void PlayEvent(const char *eventName) {}
 
 	void NewFrame()
 	{
@@ -829,16 +762,6 @@ ImApp::~ImApp()
 int ImApp::Init(const Config &config)
 {
 	return m_impl->Init(config);
-}
-
-void ImApp::LoadBanks(int bankCount, const char **bankPaths)
-{
-	m_impl->LoadBanks(bankCount, bankPaths);
-}
-
-void ImApp::PlayEvent(const char *eventName)
-{
-	m_impl->PlayEvent(eventName);
 }
 
 void ImApp::NewFrame()
