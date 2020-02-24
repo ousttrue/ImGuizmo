@@ -3,12 +3,9 @@
 #include "Win32Window.h"
 #include "ImGuiImplScreenState.h"
 #include "Renderer.h"
+#include "wgl.h"
 #include <imgui.h>
 
-// Data
-static double g_Time = {};
-static bool g_MousePressed[3] = {};
-static float g_MouseWheel = {};
 
 static void ImGui_Impl_Win32_UpdateMouseCursor()
 {
@@ -62,23 +59,11 @@ static void ImGui_Impl_Win32_UpdateMouseCursor()
 	::SetCursor(::LoadCursor(NULL, win32_cursor));
 }
 
+
 class Impl
 {
-	ImApp::Config mConfig = {};
-	bool mDone = true;
-	typedef struct
-	{
-		//---------------
-		HINSTANCE hInstance;
-		HDC hDC;
-		HGLRC hRC;
-		HWND hWnd;
-		char wndclass[4]; // window class and title :)
-						  //---------------
-	} WININFO;
-	WININFO wininfo = {};
-
 	screenstate::Win32Window m_window;
+	WGL m_wgl;
 
 public:
 	Impl()
@@ -86,123 +71,60 @@ public:
 	{
 	}
 
-	int Init(const ImApp::Config &config)
+	bool Initialize()
 	{
-		mConfig = config;
-		wininfo = WININFO{0, 0, 0, 0, {'c', 'X', 'd', 0}};
-		WININFO *info = &wininfo;
-
-		info->hInstance = GetModuleHandle(0);
-
 		ImGui::CreateContext();
-		if (!WindowInit(info))
+
+		auto hwnd = m_window.Create(L"ImGuizmoExample");
+		if (!hwnd)
 		{
-			return 0;
+			return false;
 		}
+
+		if (!m_wgl.Initialize(hwnd))
+		{
+			return false;
+		}
+
+		return (1);
 
 		if (!::InitExtension())
 		{
-			return 0;
+			return false;
 		}
 
-		if (!ImGui_Init())
-		{
-			return 0;
-		}
-
-		mDone = false;
-		return 1;
+		ImGuiIO &io = ImGui::GetIO();
+		ImGui_Impl_ScreenState_Init();
+		// Alternatively you can set this to NULL and call ImGui::GetDrawData() after ImGui::Render() to get the same ImDrawData pointer.
+		io.RenderDrawListsFn = ImGui_RenderDrawLists;
+		return true;
 	}
 
-	void NewFrame()
+	bool NewFrame()
 	{
-		// MSG msg;
-		// while (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
-		// {
-		// 	TranslateMessage(&msg);
-		// 	DispatchMessage(&msg);
-
-		// 	if (msg.message == WM_QUIT)
-		// 		mDone = true;
-		// }
 		screenstate::ScreenState state;
 		if (!m_window.Update(&state))
 		{
-			mDone = true;
+			return false;
 		}
 
 		// Start the frame
 		ImGui_Impl_ScreenState_NewFrame(state);
 		ImGui_Impl_Win32_UpdateMouseCursor();
 		ImGui::NewFrame();
+
+		return true;
 	}
 
 	void EndFrame()
 	{
 		ImGui::Render();
-
-		SwapBuffers(wininfo.hDC);
+		m_wgl.Present();
 	}
 
 	void Finish()
 	{
 		ImGui_InvalidateDeviceObjects();
-	}
-
-	bool Done()
-	{
-		return mDone;
-	}
-
-protected:
-	int WindowInit(WININFO *info)
-	{
-		info->hWnd = m_window.Create(L"ImGuizmoExample");
-
-		if (!info->hWnd)
-			return (0);
-
-		if (!(info->hDC = GetDC(info->hWnd)))
-			return (0);
-
-		static PIXELFORMATDESCRIPTOR pfd =
-			{
-				sizeof(PIXELFORMATDESCRIPTOR),
-				1,
-				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-				PFD_TYPE_RGBA,
-				32,
-				0, 0, 0, 0, 0, 0, 8, 0,
-				0, 0, 0, 0, 0, // accum
-				32,			   // zbuffer
-				0,			   // stencil!
-				0,			   // aux
-				PFD_MAIN_PLANE,
-				0, 0, 0, 0};
-
-		unsigned int PixelFormat;
-		if (!(PixelFormat = ChoosePixelFormat(info->hDC, &pfd)))
-			return (0);
-
-		if (!SetPixelFormat(info->hDC, PixelFormat, &pfd))
-			return (0);
-
-		if (!(info->hRC = wglCreateContext(info->hDC)))
-			return (0);
-
-		if (!wglMakeCurrent(info->hDC, info->hRC))
-			return (0);
-
-		return (1);
-	}
-
-	bool ImGui_Init()
-	{
-		ImGuiIO &io = ImGui::GetIO();
-		ImGui_Impl_ScreenState_Init();
-		// Alternatively you can set this to NULL and call ImGui::GetDrawData() after ImGui::Render() to get the same ImDrawData pointer.
-		io.RenderDrawListsFn = ImGui_RenderDrawLists;
-		return true;
 	}
 };
 
@@ -219,14 +141,14 @@ ImApp::~ImApp()
 	delete m_impl;
 }
 
-int ImApp::Init(const Config &config)
+int ImApp::Init()
 {
-	return m_impl->Init(config);
+	return m_impl->Initialize();
 }
 
-void ImApp::NewFrame()
+bool ImApp::NewFrame()
 {
-	m_impl->NewFrame();
+	return m_impl->NewFrame();
 }
 
 void ImApp::EndFrame()
@@ -239,9 +161,5 @@ void ImApp::Finish()
 	m_impl->Finish();
 }
 
-bool ImApp::Done()
-{
-	return m_impl->Done();
-}
 
 } // namespace ImApp
