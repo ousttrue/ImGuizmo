@@ -549,6 +549,11 @@ int main(int, char **)
 	// Alternatively you can set this to NULL and call ImGui::GetDrawData() after ImGui::Render() to get the same ImDrawData pointer.
 	io.RenderDrawListsFn = ImGui_RenderDrawLists;
 
+	// create texture
+	ImGui_CreateDeviceObjects();
+
+	m_window.Show();
+
 	// Main loop
 	screenstate::ScreenState state;
 	while (m_window.Update(&state))

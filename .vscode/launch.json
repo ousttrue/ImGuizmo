@@ -8,7 +8,7 @@
             "name": "ImGuizmoExample",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "build/ImGuizmoExample.exe",
+            "program": "${workspaceFolder}/build/example/ImGuizmoExample.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
