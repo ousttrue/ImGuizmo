@@ -1,6 +1,7 @@
 set(TARGET_NAME ImGuizmoExample)
 add_executable(${TARGET_NAME}
     main.cpp
+    ImApp.cpp
     )
 target_link_libraries(${TARGET_NAME} PRIVATE
     ImGuizmo
