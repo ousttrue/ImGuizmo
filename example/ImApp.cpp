@@ -1,5 +1,6 @@
 #include "ImApp.h"
 #include "glutil.h"
+#include "Win32Window.h"
 #include <imgui.h>
 #define IMGUI_API
 #define IMAPP_IMPL
@@ -30,7 +31,14 @@ class Impl
 	} WININFO;
 	WININFO wininfo = {};
 
+	screenstate::Win32Window m_window;
+
 public:
+	Impl()
+		: m_window(L"ImGuizmoExampleWindow")
+	{
+	}
+
 	int Init(const ImApp::Config &config)
 	{
 		mConfig = config;
@@ -42,9 +50,9 @@ public:
 		ImGui::CreateContext();
 		if (!WindowInit(info))
 		{
-			WindowEnd(info);
 			return 0;
 		}
+
 		if (!::InitExtension())
 		{
 			return 0;
@@ -95,126 +103,9 @@ public:
 	}
 
 protected:
-	static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-	{
-#ifdef IMGUI_API
-		if (ImGui_WndProcHandler(hWnd, msg, wParam, lParam))
-			return true;
-#endif
-		switch (msg)
-		{
-		case WM_SIZE:
-		{
-#ifdef IMGUI_API
-			ImGuiIO &io = ImGui::GetIO();
-
-			int w, h;
-			int display_w, display_h;
-			//glfwGetWindowSize(g_Window, &w, &h);
-			//glfwGetFramebufferSize(g_Window, &display_w, &display_h);
-			w = LOWORD(lParam); // width of client area
-			h = HIWORD(lParam); // height of client area
-			io.DisplaySize = ImVec2((float)w, (float)h);
-			display_w = w;
-			display_h = h;
-			io.DisplayFramebufferScale = ImVec2(w > 0 ? ((float)display_w / w) : 0, h > 0 ? ((float)display_h / h) : 0);
-#endif
-		}
-			return 0;
-		case WM_SYSCOMMAND:
-			if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-				return 0;
-			break;
-		case WM_DESTROY:
-			PostQuitMessage(0);
-			return 0;
-		}
-		return DefWindowProc(hWnd, msg, wParam, lParam);
-	}
-
-	void WindowEnd(WININFO *info)
-	{
-		if (info->hRC)
-		{
-			wglMakeCurrent(0, 0);
-			wglDeleteContext(info->hRC);
-		}
-
-		if (info->hDC)
-			ReleaseDC(info->hWnd, info->hDC);
-		if (info->hWnd)
-			DestroyWindow(info->hWnd);
-
-		UnregisterClassA(info->wndclass, info->hInstance);
-
-		if (mConfig.mFullscreen)
-		{
-			ChangeDisplaySettings(0, 0);
-			while (ShowCursor(1) < 0)
-				; // show cursor
-		}
-	}
-
 	int WindowInit(WININFO *info)
 	{
-		unsigned int PixelFormat;
-		DWORD dwExStyle, dwStyle;
-		DEVMODE dmScreenSettings;
-		RECT rec;
-
-		WNDCLASSEXA WndClsEx;
-
-		// Create the application window
-		WndClsEx.cbSize = sizeof(WNDCLASSEX);
-		WndClsEx.style = CS_HREDRAW | CS_VREDRAW;
-		WndClsEx.lpfnWndProc = WndProc;
-		WndClsEx.cbClsExtra = 0;
-		WndClsEx.cbWndExtra = 0;
-		WndClsEx.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-		WndClsEx.hCursor = LoadCursor(NULL, IDC_ARROW);
-		WndClsEx.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		WndClsEx.lpszMenuName = NULL;
-		WndClsEx.lpszClassName = info->wndclass;
-		WndClsEx.hInstance = info->hInstance;
-		WndClsEx.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-
-		if (!RegisterClassExA(&WndClsEx))
-			return 0;
-
-		if (mConfig.mFullscreen)
-		{
-			dmScreenSettings.dmSize = sizeof(DEVMODE);
-			dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-			dmScreenSettings.dmBitsPerPel = 32;
-			dmScreenSettings.dmPelsWidth = mConfig.mWidth;
-			dmScreenSettings.dmPelsHeight = mConfig.mHeight;
-
-			if (ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
-				return (0);
-
-			dwExStyle = WS_EX_APPWINDOW;
-			dwStyle = WS_VISIBLE | WS_POPUP;
-
-			//while (ShowCursor(0) >= 0);	// hide cursor
-		}
-		else
-		{
-			dwExStyle = 0;
-			dwStyle = WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX | WS_OVERLAPPED;
-			dwStyle = WS_VISIBLE | WS_OVERLAPPEDWINDOW | WS_POPUP;
-		}
-
-		rec.left = 0;
-		rec.top = 0;
-		rec.right = mConfig.mWidth;
-		rec.bottom = mConfig.mHeight;
-
-		AdjustWindowRect(&rec, dwStyle, 0);
-
-		info->hWnd = CreateWindowExA(dwExStyle, WndClsEx.lpszClassName, "", dwStyle | WS_MAXIMIZE,
-									 (GetSystemMetrics(SM_CXSCREEN) - rec.right + rec.left) >> 1,
-									 (GetSystemMetrics(SM_CYSCREEN) - rec.bottom + rec.top) >> 1,
-									 rec.right - rec.left, rec.bottom - rec.top, 0, 0, info->hInstance, 0);
+		info->hWnd = m_window.Create(L"ImGuizmoExample");
 
 		if (!info->hWnd)
 			return (0);
@@ -237,6 +128,7 @@ protected:
 				PFD_MAIN_PLANE,
 				0, 0, 0, 0};
 
+		unsigned int PixelFormat;
 		if (!(PixelFormat = ChoosePixelFormat(info->hDC, &pfd)))
 			return (0);
 
@@ -252,80 +144,6 @@ protected:
 		return (1);
 	}
 
-#ifdef IMGUI_API
-
-	static bool IsAnyMouseButtonDown()
-	{
-		ImGuiIO &io = ImGui::GetIO();
-		for (int n = 0; n < ARRAYSIZE(io.MouseDown); n++)
-			if (io.MouseDown[n])
-				return true;
-		return false;
-	}
-
-	// We use the Win32 capture API (GetCapture/SetCapture/ReleaseCapture) to be able to read mouse coordinations when dragging mouse outside of our window bounds.
-	static IMGUI_API LRESULT ImGui_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-	{
-		ImGuiIO &io = ImGui::GetIO();
-		switch (msg)
-		{
-		case WM_LBUTTONDOWN:
-		case WM_RBUTTONDOWN:
-		case WM_MBUTTONDOWN:
-		{
-			int button = 0;
-			if (msg == WM_LBUTTONDOWN)
-				button = 0;
-			if (msg == WM_RBUTTONDOWN)
-				button = 1;
-			if (msg == WM_MBUTTONDOWN)
-				button = 2;
-			if (!IsAnyMouseButtonDown() && GetCapture() == NULL)
-				SetCapture(hwnd);
-			io.MouseDown[button] = true;
-			return 0;
-		}
-		case WM_LBUTTONUP:
-		case WM_RBUTTONUP:
-		case WM_MBUTTONUP:
-		{
-			int button = 0;
-			if (msg == WM_LBUTTONUP)
-				button = 0;
-			if (msg == WM_RBUTTONUP)
-				button = 1;
-			if (msg == WM_MBUTTONUP)
-				button = 2;
-			io.MouseDown[button] = false;
-			if (!IsAnyMouseButtonDown() && GetCapture() == hwnd)
-				ReleaseCapture();
-			return 0;
-		}
-		case WM_MOUSEWHEEL:
-			io.MouseWheel += GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? +1.0f : -1.0f;
-			return 0;
-		case WM_MOUSEMOVE:
-			io.MousePos.x = (signed short)(lParam);
-			io.MousePos.y = (signed short)(lParam >> 16);
-			return 0;
-		case WM_KEYDOWN:
-		case WM_SYSKEYDOWN:
-			if (wParam < 256)
-				io.KeysDown[wParam] = 1;
-			return 0;
-		case WM_KEYUP:
-		case WM_SYSKEYUP:
-			if (wParam < 256)
-				io.KeysDown[wParam] = 0;
-			return 0;
-		case WM_CHAR:
-			// You can also use ToAscii()+GetKeyboardState() to retrieve characters.
-			if (wParam > 0 && wParam < 0x10000)
-				io.AddInputCharacter((unsigned short)wParam);
-			return 0;
-		}
-		return 0;
-	}
 	// This is the main rendering function that you have to implement and provide to ImGui (via setting up 'RenderDrawListsFn' in the ImGuiIO structure)
 	// Note that this implementation is little overcomplicated because we are saving/setting up/restoring every OpenGL state explicitly, in order to be able to run within any OpenGL engine that doesn't do so.
 	// If text or lines are blurry when integrating ImGui in your engine: in your Render function, try translating your projection matrix by (0.5f,0.5f) or (0.375f,0.375f)
@@ -460,50 +278,7 @@ protected:
 		glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);
 		glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
 	}
-#if 0
-		static const char* ImGui_GetClipboardText(void* user_data)
-		{
-			return glfwGetClipboardString((GLFWwindow*)user_data);
-		}
 
-		static void ImGui_SetClipboardText(void* user_data, const char* text)
-		{
-			glfwSetClipboardString((GLFWwindow*)user_data, text);
-		}
-
-		void ImGui_MouseButtonCallback(GLFWwindow*, int button, int action, int /*mods*/)
-		{
-			if (action == GLFW_PRESS && button >= 0 && button < 3)
-				g_MousePressed[button] = true;
-		}
-
-		void ImGui_ScrollCallback(GLFWwindow*, double /*xoffset*/, double yoffset)
-		{
-			g_MouseWheel += (float)yoffset; // Use fractional mouse wheel, 1.0 unit 5 lines.
-		}
-
-		void ImGui_KeyCallback(GLFWwindow*, int key, int, int action, int mods)
-		{
-			ImGuiIO& io = ImGui::GetIO();
-			if (action == GLFW_PRESS)
-				io.KeysDown[key] = true;
-			if (action == GLFW_RELEASE)
-				io.KeysDown[key] = false;
-
-			(void)mods; // Modifiers are not reliable across systems
-			io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
-			io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
-			io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
-			io.KeySuper = io.KeysDown[GLFW_KEY_LEFT_SUPER] || io.KeysDown[GLFW_KEY_RIGHT_SUPER];
-		}
-
-		void ImGui_CharCallback(GLFWwindow*, unsigned int c)
-		{
-			ImGuiIO& io = ImGui::GetIO();
-			if (c > 0 && c < 0x10000)
-				io.AddInputCharacter((unsigned short)c);
-		}
-#endif
 	bool ImGui_CreateFontsTexture()
 	{
 		// Build texture atlas
@@ -742,8 +517,6 @@ protected:
 		// Start the frame
 		ImGui::NewFrame();
 	}
-
-#endif // IMGUI_API
 };
 
 namespace ImApp
