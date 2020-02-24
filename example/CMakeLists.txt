@@ -1,7 +1,6 @@
 set(TARGET_NAME ImGuizmoExample)
 add_executable(${TARGET_NAME}
     main.cpp
-    ImApp.cpp
     glutil.cpp
     Win32Window.cpp
     ImGuiImplScreenState.cpp

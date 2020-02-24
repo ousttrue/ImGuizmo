@@ -1,6 +1,10 @@
 #include "imgui.h"
 #define IMAPP_IMPL
-#include "ImApp.h"
+#include "glutil.h"
+#include "Win32Window.h"
+#include "ImGuiImplScreenState.h"
+#include "Renderer.h"
+#include "wgl.h"
 
 #include "ImGuizmo.h"
 #include "ImSequencer.h"
@@ -481,10 +485,6 @@ static void ImGui_Impl_Win32_UpdateMouseCursor()
 
 int main(int, char **)
 {
-	ImApp::ImApp imApp;
-
-	imApp.Init();
-
 	float objectMatrix[16] =
 		{1.f, 0.f, 0.f, 0.f,
 		 0.f, 1.f, 0.f, 0.f,
@@ -526,9 +526,36 @@ int main(int, char **)
 
 	bool firstFrame = true;
 
-	// Main loop
-	while (imApp.NewFrame())
+	screenstate::Win32Window m_window(L"ImGuizmoExampleWindow");
+	auto hwnd = m_window.Create(L"ImGuizmoExample");
+	if (!hwnd)
 	{
+		return false;
+	}
+
+	WGL m_wgl;
+	if (!m_wgl.Initialize(hwnd))
+	{
+		return false;
+	}
+	if (!::InitExtension())
+	{
+		return false;
+	}
+
+	ImGui::CreateContext();
+	ImGuiIO &io = ImGui::GetIO();
+	ImGui_Impl_ScreenState_Init();
+	// Alternatively you can set this to NULL and call ImGui::GetDrawData() after ImGui::Render() to get the same ImDrawData pointer.
+	io.RenderDrawListsFn = ImGui_RenderDrawLists;
+
+	// Main loop
+	screenstate::ScreenState state;
+	while (m_window.Update(&state))
+	{
+		// Start the frame
+		ImGui_Impl_ScreenState_NewFrame(state);
+		ImGui::NewFrame();
 		ImGui_Impl_Win32_UpdateMouseCursor();
 
 		ImGuiIO &io = ImGui::GetIO();
@@ -620,12 +647,14 @@ int main(int, char **)
 		// render everything
 		glClearColor(0.45f, 0.4f, 0.4f, 1.f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		ImGui::Render();
 
-		imApp.EndFrame();
+		ImGui::Render();
+		// ImGui::Render();
+		// imApp.EndFrame();
+		m_wgl.Present();
 	}
 
-	imApp.Finish();
+	ImGui_InvalidateDeviceObjects();
 
 	return 0;
 }
