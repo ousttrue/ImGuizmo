@@ -32,11 +32,6 @@ extern "C" {
 #  define glGetProcAddress(name) (*glXGetProcAddressARB)(name)
 #endif
 
-#ifdef FMOD_API
-#include "fmod_studio.hpp"
-#include "fmod.hpp"
-#endif
-
 //	typedef long int ptrdiff_t;
 	typedef ptrdiff_t GLsizeiptr;
 	typedef char GLchar;

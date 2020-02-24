@@ -2,17 +2,8 @@
 
 #include "gl.h"
 
-
 namespace ImApp
 {
-#ifdef FMOD_API
-
-#pragma comment(lib,"fmodstudio_vc.lib")
-#pragma comment(lib,"fmod_vc.lib")
-
-	void ERRCHECK_fn(FMOD_RESULT result, const char *file, int line);
-#define ERRCHECK(_result) ERRCHECK_fn(_result, __FILE__, __LINE__)
-#endif
 
 	struct Config
 	{
@@ -80,19 +71,6 @@ namespace ImApp
 				return 0;
 
 #endif
-#ifdef FMOD_API
-			void *extraDriverData = NULL;
-			ERRCHECK(FMOD::Studio::System::create(&system));
-			FMOD::System* lowLevelSystem = NULL;
-			ERRCHECK(system->getLowLevelSystem(&lowLevelSystem));
-			ERRCHECK(lowLevelSystem->setSoftwareFormat(0, FMOD_SPEAKERMODE_STEREO, 0)); // on rajoute la config pour le stereo
-
-#ifdef RETAIL
-			ERRCHECK(system->initialize(32, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, extraDriverData));
-#else
-			ERRCHECK(system->initialize(32, FMOD_STUDIO_INIT_NORMAL | FMOD_STUDIO_INIT_LIVEUPDATE | FMOD_STUDIO_INIT_SYNCHRONOUS_UPDATE, FMOD_INIT_NORMAL | FMOD_INIT_PROFILE_ENABLE, extraDriverData));
-#endif
-#endif
 			mDone = false;
 			return 1;
 		}
@@ -119,9 +97,6 @@ namespace ImApp
 
 		void EndFrame()
 		{
-#ifdef FMOD_API
-			ERRCHECK(system->update());
-#endif
 #ifdef IMGUI_API
 			ImGui::Render();
 #endif
@@ -131,11 +106,6 @@ namespace ImApp
 		{
 #ifdef IMGUI_API
 			ImGui_Shutdown();
-#endif
-#ifdef FMOD_API
-			ERRCHECK(system->unloadAll());
-			ERRCHECK(system->flushCommands());
-			ERRCHECK(system->release());
 #endif
 		}
 		bool Done()
@@ -149,9 +119,6 @@ namespace ImApp
 		bool mInitExtensionsDone;
 		bool mExtensionsPresent;
 		bool mDone;
-#ifdef FMOD_API
-		FMOD::Studio::System* system;
-#endif
 		typedef struct
 		{
 			//---------------
@@ -896,45 +863,8 @@ namespace ImApp
 	unsigned int ImApp::g_VboHandle = 0, ImApp::g_VaoHandle = 0, ImApp::g_ElementsHandle = 0;
 #endif
 
-#ifdef FMOD_API
-	void ERRCHECK_fn(FMOD_RESULT result, const char *file, int line)
-	{
-		if (result != FMOD_OK)
-		{
-			/*if (Common_Private_Error)
-			{
-				Common_Private_Error(result, file, line);
-			}
-			Common_Fatal("%s(%d): FMOD error %d - %s", file, line, result, FMOD_ErrorString(result));
-			*/
-			MessageBoxA(NULL, "", "FMOD Error", MB_OK);
-		}
-	}
-
-	void ImApp::LoadBanks(int bankCount, const char **bankPaths)
-	{
-		for (int i = 0; i < bankCount; i++)
-		{
-			FMOD::Studio::Bank* bank;
-			ERRCHECK(system->loadBankFile(bankPaths[i], FMOD_STUDIO_LOAD_BANK_NONBLOCKING, &bank));
-
-			//loadBank(system, (LoadBankMethod)i, Common_MediaPath(BANK_NAMES[i]), &banks[i]));
-		}
-	}
-	void ImApp::PlayEvent(const char *eventName)
-	{
-		FMOD::Studio::ID FMODEventID = { 0 };
-		//ERRCHECK( FMODsystem->lookupID(facts[j].mName.c_str(), &FMODEventID) );
-		FMOD::Studio::EventDescription* eventDescription = NULL;
-		ERRCHECK(system->getEvent(eventName, /*FMOD_STUDIO_LOAD_BEGIN_NOW,*/ &eventDescription));
-		FMOD::Studio::EventInstance* FMODeventInstance = NULL;
-		ERRCHECK(eventDescription->createInstance(&FMODeventInstance));
-		ERRCHECK(FMODeventInstance->start());
-	}
-#else
 	void ImApp::LoadBanks(int bankCount, const char **bankPaths) {}
 	void ImApp::PlayEvent(const char *eventName) {}
-#endif
 
 #endif
 }
