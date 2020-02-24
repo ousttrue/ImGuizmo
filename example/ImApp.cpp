@@ -1,9 +1,8 @@
 #include "ImApp.h"
 #include "glutil.h"
 #include "Win32Window.h"
+#include "ImGuiImplScreenState.h"
 #include <imgui.h>
-#define IMGUI_API
-#define IMAPP_IMPL
 
 // Data
 static double g_Time = {};
@@ -14,6 +13,58 @@ static int g_ShaderHandle = {}, g_VertHandle = {}, g_FragHandle = {};
 static int g_AttribLocationTex = {}, g_AttribLocationProjMtx = {};
 static int g_AttribLocationPosition = {}, g_AttribLocationUV = {}, g_AttribLocationColor = {};
 static unsigned int g_VboHandle = {}, g_VaoHandle = {}, g_ElementsHandle = {};
+
+static void ImGui_Impl_Win32_UpdateMouseCursor()
+{
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange)
+    {
+        SetCursor(LoadCursor(NULL, IDC_ARROW));
+        return;
+    }
+
+    ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
+    if (imgui_cursor == ImGuiMouseCursor_None || io.MouseDrawCursor)
+    {
+        // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
+        ::SetCursor(NULL);
+        return;
+    }
+
+    // Show OS mouse cursor
+    LPTSTR win32_cursor = IDC_ARROW;
+    switch (imgui_cursor)
+    {
+    case ImGuiMouseCursor_Arrow:
+        win32_cursor = IDC_ARROW;
+        break;
+    case ImGuiMouseCursor_TextInput:
+        win32_cursor = IDC_IBEAM;
+        break;
+    case ImGuiMouseCursor_ResizeAll:
+        win32_cursor = IDC_SIZEALL;
+        break;
+    case ImGuiMouseCursor_ResizeEW:
+        win32_cursor = IDC_SIZEWE;
+        break;
+    case ImGuiMouseCursor_ResizeNS:
+        win32_cursor = IDC_SIZENS;
+        break;
+    case ImGuiMouseCursor_ResizeNESW:
+        win32_cursor = IDC_SIZENESW;
+        break;
+    case ImGuiMouseCursor_ResizeNWSE:
+        win32_cursor = IDC_SIZENWSE;
+        break;
+    case ImGuiMouseCursor_Hand:
+        win32_cursor = IDC_HAND;
+        break;
+    // case ImGuiMouseCursor_NotAllowed:
+    //     win32_cursor = IDC_NO;
+    //     break;
+    }
+    ::SetCursor(::LoadCursor(NULL, win32_cursor));
+}
 
 class Impl
 {
@@ -69,34 +120,42 @@ public:
 
 	void NewFrame()
 	{
-		MSG msg;
-		while (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+		// MSG msg;
+		// while (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+		// {
+		// 	TranslateMessage(&msg);
+		// 	DispatchMessage(&msg);
 
-			if (msg.message == WM_QUIT)
-				mDone = true;
+		// 	if (msg.message == WM_QUIT)
+		// 		mDone = true;
+		// }
+		screenstate::ScreenState state;
+		if(!m_window.Update(&state))
+		{
+			mDone = true;
 		}
 
-#ifdef IMGUI_API
-		ImGui_NewFrame();
-#endif
+		if (!g_FontTexture)
+			ImGui_CreateDeviceObjects();
+
+		// Start the frame
+		ImGui_Impl_ScreenState_NewFrame(state);
+		ImGui_Impl_Win32_UpdateMouseCursor();
+		ImGui::NewFrame();
 	}
 
 	void EndFrame()
 	{
-#ifdef IMGUI_API
 		ImGui::Render();
-#endif
+
 		SwapBuffers(wininfo.hDC);
 	}
+
 	void Finish()
 	{
-#ifdef IMGUI_API
 		ImGui_Shutdown();
-#endif
 	}
+
 	bool Done()
 	{
 		return mDone;
@@ -420,27 +479,29 @@ protected:
 	bool ImGui_Init()
 	{
 		ImGuiIO &io = ImGui::GetIO();
-		io.KeyMap[ImGuiKey_Tab] = VK_TAB; // Keyboard mapping. ImGui will use those indices to peek into the io.KeyDown[] array that we will update during the application lifetime.
-		io.KeyMap[ImGuiKey_LeftArrow] = VK_LEFT;
-		io.KeyMap[ImGuiKey_RightArrow] = VK_RIGHT;
-		io.KeyMap[ImGuiKey_UpArrow] = VK_UP;
-		io.KeyMap[ImGuiKey_DownArrow] = VK_DOWN;
-		io.KeyMap[ImGuiKey_PageUp] = VK_PRIOR;
-		io.KeyMap[ImGuiKey_PageDown] = VK_NEXT;
-		io.KeyMap[ImGuiKey_Home] = VK_HOME;
-		io.KeyMap[ImGuiKey_End] = VK_END;
-		io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
-		io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
-		io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
-		io.KeyMap[ImGuiKey_Escape] = VK_ESCAPE;
-		io.KeyMap[ImGuiKey_A] = 'A';
-		io.KeyMap[ImGuiKey_C] = 'C';
-		io.KeyMap[ImGuiKey_V] = 'V';
-		io.KeyMap[ImGuiKey_X] = 'X';
-		io.KeyMap[ImGuiKey_Y] = 'Y';
-		io.KeyMap[ImGuiKey_Z] = 'Z';
+		// io.KeyMap[ImGuiKey_Tab] = VK_TAB; // Keyboard mapping. ImGui will use those indices to peek into the io.KeyDown[] array that we will update during the application lifetime.
+		// io.KeyMap[ImGuiKey_LeftArrow] = VK_LEFT;
+		// io.KeyMap[ImGuiKey_RightArrow] = VK_RIGHT;
+		// io.KeyMap[ImGuiKey_UpArrow] = VK_UP;
+		// io.KeyMap[ImGuiKey_DownArrow] = VK_DOWN;
+		// io.KeyMap[ImGuiKey_PageUp] = VK_PRIOR;
+		// io.KeyMap[ImGuiKey_PageDown] = VK_NEXT;
+		// io.KeyMap[ImGuiKey_Home] = VK_HOME;
+		// io.KeyMap[ImGuiKey_End] = VK_END;
+		// io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
+		// io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
+		// io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
+		// io.KeyMap[ImGuiKey_Escape] = VK_ESCAPE;
+		// io.KeyMap[ImGuiKey_A] = 'A';
+		// io.KeyMap[ImGuiKey_C] = 'C';
+		// io.KeyMap[ImGuiKey_V] = 'V';
+		// io.KeyMap[ImGuiKey_X] = 'X';
+		// io.KeyMap[ImGuiKey_Y] = 'Y';
+		// io.KeyMap[ImGuiKey_Z] = 'Z';
 
-		io.ImeWindowHandle = this->wininfo.hWnd;
+		// io.ImeWindowHandle = this->wininfo.hWnd;
+		ImGui_Impl_ScreenState_Init();
+
 		io.RenderDrawListsFn = ImGui_RenderDrawLists; // Alternatively you can set this to NULL and call ImGui::GetDrawData() after ImGui::Render() to get the same ImDrawData pointer.
 		/*
 			io.SetClipboardTextFn = ImGui_SetClipboardText;
@@ -453,69 +514,6 @@ protected:
 	void ImGui_Shutdown()
 	{
 		ImGui_InvalidateDeviceObjects();
-	}
-
-	void ImGui_NewFrame()
-	{
-		if (!g_FontTexture)
-			ImGui_CreateDeviceObjects();
-
-		ImGuiIO &io = ImGui::GetIO();
-
-		// Read keyboard modifiers inputs
-		io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-		io.KeyShift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-		io.KeyAlt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-		io.KeySuper = false;
-
-		/*
-			// Setup display size (every frame to accommodate for window resizing)
-			int w, h;
-			int display_w, display_h;
-			glfwGetWindowSize(g_Window, &w, &h);
-			glfwGetFramebufferSize(g_Window, &display_w, &display_h);
-			io.DisplaySize = ImVec2((float)w, (float)h);
-			io.DisplayFramebufferScale = ImVec2(w > 0 ? ((float)display_w / w) : 0, h > 0 ? ((float)display_h / h) : 0);
-
-			// Setup time step
-			double current_time = glfwGetTime();
-			io.DeltaTime = g_Time > 0.0 ? (float)(current_time - g_Time) : (float)(1.0f / 60.0f);
-			g_Time = current_time;
-
-			// Setup inputs
-			// (we already got mouse wheel, keyboard keys & characters from glfw callbacks polled in glfwPollEvents())
-			if (glfwGetWindowAttrib(g_Window, GLFW_FOCUSED))
-			{
-				if (io.WantMoveMouse)
-				{
-					glfwSetCursorPos(g_Window, (double)io.MousePos.x, (double)io.MousePos.y);   // Set mouse position if requested by io.WantMoveMouse flag (used when io.NavMovesTrue is enabled by user and using directional navigation)
-				}
-				else
-				{
-					double mouse_x, mouse_y;
-					glfwGetCursorPos(g_Window, &mouse_x, &mouse_y);
-					io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);   // Get mouse position in screen coordinates (set to -1,-1 if no mouse / on another screen, etc.)
-				}
-			}
-			else
-			{
-				io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
-			}
-
-			for (int i = 0; i < 3; i++)
-			{
-				io.MouseDown[i] = g_MousePressed[i] || glfwGetMouseButton(g_Window, i) != 0;    // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-				g_MousePressed[i] = false;
-			}
-
-			io.MouseWheel = g_MouseWheel;
-			g_MouseWheel = 0.0f;
-
-			// Hide OS mouse cursor if ImGui is drawing it
-			glfwSetInputMode(g_Window, GLFW_CURSOR, io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
-			*/
-		// Start the frame
-		ImGui::NewFrame();
 	}
 };
 
