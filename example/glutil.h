@@ -2647,3 +2647,5 @@ GLEXTERN void(APIENTRY *glBlitFramebuffer)(GLint srcX0, GLint srcY0, GLint srcX1
 GLEXTERN void(APIENTRY *glBlendEquation)(GLenum mode);
 GLEXTERN void(APIENTRY *glBindSampler)(GLuint unit, GLuint sampler);
 GLEXTERN void(APIENTRY *glDetachShader)(GLuint program, GLuint shader);
+
+bool InitExtension();

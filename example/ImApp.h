@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gl.h"
+#include "glutil.h"
 
 class Impl;
 namespace ImApp
