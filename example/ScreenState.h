@@ -64,7 +64,12 @@ struct ScreenState
 
     float DeltaSeconds(const ScreenState &rhs) const
     {
-        return 0.001f * (Time - rhs.Time);
+        auto delta = Time - rhs.Time;
+        if (delta == 0)
+        {
+            return 0.001f;
+        }
+        return 0.001f * delta;
     }
 };
 static_assert(sizeof(ScreenState) == 16, "sizeof(WindowMouseState)");
