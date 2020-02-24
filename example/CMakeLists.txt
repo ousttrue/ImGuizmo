@@ -6,6 +6,7 @@ add_executable(${TARGET_NAME}
     ImGuiImplScreenState.cpp
     Renderer.cpp
     camera.cpp
+    MySeqence.cpp
     )
 set_property(TARGET ${TARGET_NAME} 
     PROPERTY CXX_STANDARD 20
