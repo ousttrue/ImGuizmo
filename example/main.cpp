@@ -1,3 +1,4 @@
+#include "camera.h"
 #include "imgui.h"
 #define IMAPP_IMPL
 #include "glutil.h"
@@ -5,6 +6,7 @@
 #include "ImGuiImplScreenState.h"
 #include "Renderer.h"
 #include "wgl.h"
+
 
 #include "ImGuizmo.h"
 #include "ImSequencer.h"
@@ -21,118 +23,12 @@
 //
 static inline ImVec2 operator-(const ImVec2 &lhs, const ImVec2 &rhs) { return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y); }
 
-void Frustum(float left, float right, float bottom, float top, float znear, float zfar, float *m16)
-{
-	float temp, temp2, temp3, temp4;
-	temp = 2.0f * znear;
-	temp2 = right - left;
-	temp3 = top - bottom;
-	temp4 = zfar - znear;
-	m16[0] = temp / temp2;
-	m16[1] = 0.0;
-	m16[2] = 0.0;
-	m16[3] = 0.0;
-	m16[4] = 0.0;
-	m16[5] = temp / temp3;
-	m16[6] = 0.0;
-	m16[7] = 0.0;
-	m16[8] = (right + left) / temp2;
-	m16[9] = (top + bottom) / temp3;
-	m16[10] = (-zfar - znear) / temp4;
-	m16[11] = -1.0f;
-	m16[12] = 0.0;
-	m16[13] = 0.0;
-	m16[14] = (-temp * zfar) / temp4;
-	m16[15] = 0.0;
-}
+static const float identityMatrix[16] =
+	{1.f, 0.f, 0.f, 0.f,
+	 0.f, 1.f, 0.f, 0.f,
+	 0.f, 0.f, 1.f, 0.f,
+	 0.f, 0.f, 0.f, 1.f};
 
-void Perspective(float fovyInDegrees, float aspectRatio, float znear, float zfar, float *m16)
-{
-	float ymax, xmax;
-	ymax = znear * tanf(fovyInDegrees * 3.141592f / 180.0f);
-	xmax = ymax * aspectRatio;
-	Frustum(-xmax, xmax, -ymax, ymax, znear, zfar, m16);
-}
-
-void Cross(const float *a, const float *b, float *r)
-{
-	r[0] = a[1] * b[2] - a[2] * b[1];
-	r[1] = a[2] * b[0] - a[0] * b[2];
-	r[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-float Dot(const float *a, const float *b)
-{
-	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-void Normalize(const float *a, float *r)
-{
-	float il = 1.f / (sqrtf(Dot(a, a)) + FLT_EPSILON);
-	r[0] = a[0] * il;
-	r[1] = a[1] * il;
-	r[2] = a[2] * il;
-}
-
-void LookAt(const float *eye, const float *at, const float *up, float *m16)
-{
-	float X[3], Y[3], Z[3], tmp[3];
-
-	tmp[0] = eye[0] - at[0];
-	tmp[1] = eye[1] - at[1];
-	tmp[2] = eye[2] - at[2];
-	//Z.normalize(eye - at);
-	Normalize(tmp, Z);
-	Normalize(up, Y);
-	//Y.normalize(up);
-
-	Cross(Y, Z, tmp);
-	//tmp.cross(Y, Z);
-	Normalize(tmp, X);
-	//X.normalize(tmp);
-
-	Cross(Z, X, tmp);
-	//tmp.cross(Z, X);
-	Normalize(tmp, Y);
-	//Y.normalize(tmp);
-
-	m16[0] = X[0];
-	m16[1] = Y[0];
-	m16[2] = Z[0];
-	m16[3] = 0.0f;
-	m16[4] = X[1];
-	m16[5] = Y[1];
-	m16[6] = Z[1];
-	m16[7] = 0.0f;
-	m16[8] = X[2];
-	m16[9] = Y[2];
-	m16[10] = Z[2];
-	m16[11] = 0.0f;
-	m16[12] = -Dot(X, eye);
-	m16[13] = -Dot(Y, eye);
-	m16[14] = -Dot(Z, eye);
-	m16[15] = 1.0f;
-}
-
-void OrthoGraphic(const float l, float r, float b, const float t, float zn, const float zf, float *m16)
-{
-	m16[0] = 2 / (r - l);
-	m16[1] = 0.0f;
-	m16[2] = 0.0f;
-	m16[3] = 0.0f;
-	m16[4] = 0.0f;
-	m16[5] = 2 / (t - b);
-	m16[6] = 0.0f;
-	m16[7] = 0.0f;
-	m16[8] = 0.0f;
-	m16[9] = 0.0f;
-	m16[10] = 1.0f / (zf - zn);
-	m16[11] = 0.0f;
-	m16[12] = (l + r) / (l - r);
-	m16[13] = (t + b) / (b - t);
-	m16[14] = zn / (zn - zf);
-	m16[15] = 1.0f;
-}
 
 void EditTransform(const float *cameraView, float *cameraProjection, float *matrix)
 {
@@ -483,6 +379,7 @@ static void ImGui_Impl_Win32_UpdateMouseCursor()
 	::SetCursor(::LoadCursor(NULL, win32_cursor));
 }
 
+
 int main(int, char **)
 {
 	float objectMatrix[16] =
@@ -490,20 +387,6 @@ int main(int, char **)
 		 0.f, 1.f, 0.f, 0.f,
 		 0.f, 0.f, 1.f, 0.f,
 		 0.f, 0.f, 0.f, 1.f};
-
-	static const float identityMatrix[16] =
-		{1.f, 0.f, 0.f, 0.f,
-		 0.f, 1.f, 0.f, 0.f,
-		 0.f, 0.f, 1.f, 0.f,
-		 0.f, 0.f, 0.f, 1.f};
-
-	float cameraView[16] =
-		{1.f, 0.f, 0.f, 0.f,
-		 0.f, 1.f, 0.f, 0.f,
-		 0.f, 0.f, 1.f, 0.f,
-		 0.f, 0.f, 0.f, 1.f};
-
-	float cameraProjection[16];
 
 	// sequence with default values
 	MySequence mySequence;
@@ -516,15 +399,7 @@ int main(int, char **)
 	mySequence.myItems.push_back(MySequence::MySequenceItem{4, 90, 99, false});
 
 	// Camera projection
-	bool isPerspective = false;
-	float fov = 27.f;
-	float viewWidth = 10.f; // for orthographic
-	float camYAngle = 165.f / 180.f * 3.14159f;
-	float camXAngle = 0.f / 180.f * 3.14159f;
-	float camDistance = 8.f;
 	rotationY(0.f, objectMatrix);
-
-	bool firstFrame = true;
 
 	screenstate::Win32Window m_window(L"ImGuizmoExampleWindow");
 	auto hwnd = m_window.Create(L"ImGuizmoExample");
@@ -554,6 +429,8 @@ int main(int, char **)
 
 	m_window.Show();
 
+	Camera camera;
+
 	// Main loop
 	screenstate::ScreenState state;
 	while (m_window.Update(&state))
@@ -564,16 +441,8 @@ int main(int, char **)
 		ImGui_Impl_Win32_UpdateMouseCursor();
 
 		ImGuiIO &io = ImGui::GetIO();
-		if (isPerspective)
-		{
-			Perspective(fov, io.DisplaySize.x / io.DisplaySize.y, 0.1f, 100.f, cameraProjection);
-		}
-		else
-		{
-			float viewHeight = viewWidth * io.DisplaySize.y / io.DisplaySize.x;
-			OrthoGraphic(-viewWidth, viewWidth, -viewHeight, viewHeight, -viewWidth, viewWidth, cameraProjection);
-		}
-		ImGuizmo::SetOrthographic(!isPerspective);
+		camera.Update(io.DisplaySize.x, io.DisplaySize.y);
+		ImGuizmo::SetOrthographic(!camera.isPerspective);
 
 		ImGuizmo::BeginFrame();
 
@@ -585,38 +454,12 @@ int main(int, char **)
 		// ImGui::SetNextWindowSize(ImVec2(320, 340));
 		ImGui::Begin("Editor");
 		ImGui::Text("Camera");
-		bool viewDirty = false;
-		if (ImGui::RadioButton("Perspective", isPerspective))
-			isPerspective = true;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Orthographic", !isPerspective))
-			isPerspective = false;
-		if (isPerspective)
-		{
-			ImGui::SliderFloat("Fov", &fov, 20.f, 110.f);
-		}
-		else
-		{
-			ImGui::SliderFloat("Ortho width", &viewWidth, 1, 20);
-		}
-		viewDirty |= ImGui::SliderAngle("Camera X", &camXAngle, 0.f, 179.f);
-		viewDirty |= ImGui::SliderAngle("Camera Y", &camYAngle);
-		viewDirty |= ImGui::SliderFloat("Distance", &camDistance, 1.f, 10.f);
-
-		if (viewDirty || firstFrame)
-		{
-			float eye[] = {cosf(camYAngle) * cosf(camXAngle) * camDistance + 2.f, sinf(camXAngle) * camDistance, sinf(camYAngle) * cosf(camXAngle) * camDistance};
-			float at[] = {2.f, 0.f, 0.f};
-			float up[] = {0.f, 1.f, 0.f};
-			LookAt(eye, at, up, cameraView);
-			firstFrame = false;
-		}
-		ImGuizmo::DrawCube(cameraView, cameraProjection, objectMatrix);
-		ImGuizmo::DrawGrid(cameraView, cameraProjection, identityMatrix, 10.f);
-
+		camera.Gui();
+		ImGuizmo::DrawCube(camera.cameraView, camera.cameraProjection, objectMatrix);
+		ImGuizmo::DrawGrid(camera.cameraView, camera.cameraProjection, identityMatrix, 10.f);
 		ImGui::Text("X: %f Y: %f", io.MousePos.x, io.MousePos.y);
 		ImGui::Separator();
-		EditTransform(cameraView, cameraProjection, objectMatrix);
+		EditTransform(camera.cameraView, camera.cameraProjection, objectMatrix);
 		ImGui::End();
 
 		// let's create the sequencer
@@ -647,7 +490,7 @@ int main(int, char **)
 
 		ImGui::End();
 
-		ImGuizmo::ViewManipulate(cameraView, camDistance, ImVec2(io.DisplaySize.x - 128, 0), ImVec2(128, 128), 0x10101010);
+		ImGuizmo::ViewManipulate(camera.cameraView, camera.camDistance, ImVec2(io.DisplaySize.x - 128, 0), ImVec2(128, 128), 0x10101010);
 
 		// render everything
 		glClearColor(0.45f, 0.4f, 0.4f, 1.f);

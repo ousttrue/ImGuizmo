@@ -5,6 +5,7 @@ add_executable(${TARGET_NAME}
     Win32Window.cpp
     ImGuiImplScreenState.cpp
     Renderer.cpp
+    camera.cpp
     )
 set_property(TARGET ${TARGET_NAME} 
     PROPERTY CXX_STANDARD 20
